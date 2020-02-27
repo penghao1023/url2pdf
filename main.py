@@ -6,6 +6,22 @@ WIDTH = 1080
 HEIGHT = 1920
 
 
+def patch_pyppeteer():
+    """
+    This function is copied from https://github.com/miyakogi/pyppeteer/pull/160#issuecomment-448886155
+    This is a bug about chromium, and here is a simple method to temporarily fix it
+    """
+    import pyppeteer.connection
+    original_method = pyppeteer.connection.websockets.client.connect
+
+    def new_method(*args, **kwargs):
+        kwargs['ping_interval'] = None
+        kwargs['ping_timeout'] = None
+        return original_method(*args, **kwargs)
+
+    pyppeteer.connection.websockets.client.connect = new_method
+
+
 async def deal(browser, path, url):
     page = await browser.newPage()
     await page.setViewport({
@@ -32,8 +48,7 @@ async def main():
     ])
     path = Path('data')
     path.mkdir(parents=True, exist_ok=True)
-    # urls = [each.strip() for each in ','.join(open('work1.csv').readlines()).split(',') if each[:4] == 'http']
-    urls = ['https://mp.weixin.qq.com/s/YsyTsma8tGXRgBwhpnWAuA']
+    urls = [each.strip() for each in ','.join(open('work1.csv').readlines()).split(',') if each[:4] == 'http']
     try:
         await asyncio.gather(*(deal(browser, path, url) for url in urls))
     finally:
@@ -41,4 +56,5 @@ async def main():
 
 
 if __name__ == '__main__':
+    patch_pyppeteer()
     asyncio.run(main())
