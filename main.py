@@ -1,6 +1,7 @@
 import asyncio
 from pathlib import Path
 from pyppeteer import launcher
+from tqdm import tqdm
 
 WIDTH = 1080
 HEIGHT = 1920
@@ -49,8 +50,13 @@ async def main():
     path = Path('data')
     path.mkdir(parents=True, exist_ok=True)
     urls = [each.strip() for each in ','.join(open('work1.csv').readlines()).split(',') if each[:4] == 'http']
+    # await asyncio.gather(*(deal(browser, path, url) for url in urls))
     try:
-        await asyncio.gather(*(deal(browser, path, url) for url in urls))
+        for url in tqdm(urls):
+            try:
+                asyncio.run(deal(browser, path, url))
+            except:
+                print('[ERROR] Failed to deal', url)
     finally:
         await browser.close()
 
