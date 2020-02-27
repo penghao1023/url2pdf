@@ -38,7 +38,7 @@ async def deal(browser, path, url):
     for i in range(height // HEIGHT + 1):
         await page.evaluate("(height)=>{window.scrollBy(0, height);}", HEIGHT)
         await page.waitFor(500)
-    await page.pdf(path=path.joinpath(f'{title}.pdf)'))
+    await page.pdf(path=path.joinpath(f'{title}.pdf'))
     await page.close()
 
 
@@ -50,11 +50,14 @@ async def main():
     path = Path('data')
     path.mkdir(parents=True, exist_ok=True)
     urls = [each.strip() for each in ','.join(open('work1.csv').readlines()).split(',') if each[:4] == 'http']
+    # urls = ['https://mp.weixin.qq.com/s/YsyTsma8tGXRgBwhpnWAuA',
+    #         'https://mp.weixin.qq.com/s/7OFhT0H2PckaxNMriOUp6g']
     # await asyncio.gather(*(deal(browser, path, url) for url in urls))
     try:
         for url in tqdm(urls):
             try:
-                asyncio.run(deal(browser, path, url))
+                task = asyncio.create_task(deal(browser, path, url))
+                await task
             except:
                 print('[ERROR] Failed to deal', url)
     finally:
