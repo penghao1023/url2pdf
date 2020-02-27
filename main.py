@@ -2,9 +2,10 @@ import asyncio
 from pathlib import Path
 from pyppeteer import launcher
 from tqdm import tqdm
+from json import load
 
 WIDTH = 1080
-HEIGHT = 1920
+HEIGHT = 4000
 
 
 def patch_pyppeteer():
@@ -23,7 +24,11 @@ def patch_pyppeteer():
     pyppeteer.connection.websockets.client.connect = new_method
 
 
-async def deal(browser, path, url):
+async def deal(path, url):
+    browser = await launcher.launch(args=[
+        "--no-sandbox",
+        '--disable-setuid-sandbox',
+    ])
     page = await browser.newPage()
     await page.setViewport({
         "width": WIDTH,
@@ -33,35 +38,27 @@ async def deal(browser, path, url):
     element = await page.querySelector('#activity-name')
     title = await page.evaluate('(e) => e.textContent', element)
     title = title.strip()
-    await page.waitFor(2000)
+    await page.waitFor(1400)
     height = await page.evaluate("()=> document.body.scrollHeight")
-    for i in range(height // HEIGHT + 1):
-        await page.evaluate("(height)=>{window.scrollBy(0, height);}", HEIGHT)
-        await page.waitFor(500)
-    await page.pdf(path=path.joinpath(f'{title}.pdf'))
+    for i in range(2 * height // HEIGHT + 1):
+        await page.evaluate("(height)=>{window.scrollBy(0, height);}", HEIGHT >> 1)
+        await page.waitFor(300)
+    await page.pdf(path=path.joinpath(f'{title}__{url.split("/")[-1]}.pdf'))
     await page.close()
+    await browser.close()
 
 
 async def main():
-    browser = await launcher.launch(args=[
-        "--no-sandbox",
-        '--disable-setuid-sandbox',
-    ])
-    path = Path('data')
-    path.mkdir(parents=True, exist_ok=True)
-    urls = [each.strip() for each in ','.join(open('work1.csv').readlines()).split(',') if each[:4] == 'http']
-    # urls = ['https://mp.weixin.qq.com/s/YsyTsma8tGXRgBwhpnWAuA',
-    #         'https://mp.weixin.qq.com/s/7OFhT0H2PckaxNMriOUp6g']
-    # await asyncio.gather(*(deal(browser, path, url) for url in urls))
-    try:
-        for url in tqdm(urls):
-            try:
-                task = asyncio.create_task(deal(browser, path, url))
-                await task
-            except:
-                print('[ERROR] Failed to deal', url)
-    finally:
-        await browser.close()
+    parent = Path('data')
+    data = [(name, url) for name, urls in load(open('source.json')).items() for url in urls ]
+    for name, url in tqdm(data):
+        path = parent.joinpath(name)
+        path.mkdir(parents=True, exist_ok=True)
+        try:
+            task = asyncio.create_task(deal(path, url))
+            await task
+        except:
+            print('[ERROR] Failed to deal', url)
 
 
 if __name__ == '__main__':
